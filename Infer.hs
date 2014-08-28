@@ -1,6 +1,5 @@
 module Infer where
 
-import           Control.Applicative ((<$>))
 import           Control.Monad.State
 import           Data.List           (nub, (\\))
 import qualified Data.Map            as Map
@@ -50,26 +49,26 @@ instantiate (TScheme ns t) =
            return $ apply s t
 instantiate t = return t
 
-unify :: Ty -> Ty -> Env Sub
+unify :: Ty -> Ty -> Sub
 unify (TConst n1) (TConst n2) =
         if n1 == n2
-            then return Map.empty
+            then Map.empty
             else error "not match"
 unify (TApp t1 ts1) (TApp t2 ts2) = unify (TArrow ts1 t1) (TArrow ts2 t2)
 unify (TArrow ts1 t1) (TArrow ts2 t2) =
         if length ts1 /= length ts2
             then error "not macth"
-            else do s0 <- unify t1 t2
-                    let f s (ta, tb) = (`compose` s) <$> unify (apply s ta) (apply s tb)
-                    foldM f s0 (zip ts1 ts2)
+            else let s0 = unify t1 t2
+                     f s (ta, tb) = unify (apply s ta) (apply s tb) `compose` s
+                 in  foldl f s0 (zip ts1 ts2)
 unify (TVar n) t = varBind n t
 unify t (TVar n) = varBind n t
 unify _ _ = error "not match"
 
-varBind :: Name -> Ty -> Env Sub
-varBind n t | t == TVar n = return Map.empty
+varBind :: Name -> Ty -> Sub
+varBind n t | t == TVar n = Map.empty
             | n `Set.member` ftv t = error $ "occur check fails: " ++ n
-            | otherwise = return $ Map.singleton n t
+            | otherwise = Map.singleton n t
 
 infer :: TypeEnv -> Expr -> Env (Sub, Ty)
 infer env (Var n) =
@@ -81,20 +80,19 @@ infer env (Call e es) =
         do tv <- newTyVar "a"
            (s1, t1) <- infer env e
            (s2, ts) <- foldM f (s1, []) es
-           s3 <- unify (apply s2 t1) (TArrow ts tv)
+           let s3 = unify (apply s2 t1) (TArrow ts tv)
            return (s3 `compose` s2 `compose` s1, apply s3 tv)
     where f (s0, ts) e2 = do (se, te) <- infer (Map.map (apply s0) env) e2
                              return $ (se `compose` s0, ts ++ [te])
 infer env (Fun ns e) =
         do ns' <- mapM (\ _ -> newTyVar "a") ns
-           let env' = foldr Map.delete env ns
-               env'' = env' `Map.union` (Map.fromList $ zip ns ns')
-           (s1, t1) <- infer env'' e
+           let env' = (Map.fromList $ zip ns ns') `Map.union` env
+           (s1, t1) <- infer env' e
            return $ (s1, TArrow (map (apply s1) ns') t1)
 infer env (Let n e1 e2) =
         do (s1, t1) <- infer env e1
            let env' = Map.delete n env
-               t' = generalize (Map.map (apply s1) env) (apply s1 t1) -- fix?
+               t' = generalize (Map.map (apply s1) env) t1
                env'' = Map.insert n t' env'
            (s2, t2) <- infer (Map.map (apply s1) env'') e2
            return (s2 `compose` s1, t2)
