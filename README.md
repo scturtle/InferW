@@ -2,10 +2,7 @@ InferW
 ======
 
 Type inference algorithm W in Haskell.   
-Syntax and testcases are from  [https://github.com/tomprimozic/type-systems](https://github.com/tomprimozic/type-systems) in OCaml.
-
-*TODO*:
-2 test cases failed.
+Syntax and testcases are from  [github.com/tomprimozic/type-systems](https://github.com/tomprimozic/type-systems) in OCaml.
 
 #### Reference:   
 [Implementations of various type systems in OCaml](https://news.ycombinator.com/item?id=8171595)   

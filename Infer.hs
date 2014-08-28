@@ -60,7 +60,7 @@ unify (TArrow ts1 t1) (TArrow ts2 t2) =
         if length ts1 /= length ts2
             then error "not macth"
             else do s0 <- unify t1 t2
-                    let f s (ta, tb) = compose s <$> unify (apply s ta) (apply s tb)
+                    let f s (ta, tb) = (`compose` s) <$> unify (apply s ta) (apply s tb)
                     foldM f s0 (zip ts1 ts2)
 unify (TVar n) t = varBind n t
 unify t (TVar n) = varBind n t
